@@ -130,7 +130,7 @@ const incomePercentages = computed(() => categoryPercentages(getIncomeByCategory
               <span class="ml-auto font-semibold text-slate-800">{{ amount(getExpenseByCategory.get(row) as number) }}</span>
               <span class="w-10 text-right text-xs text-slate-400">{{ expensePercentages.get(row) ?? 0 }}%</span>
             </div>
-            <ProgressBar :ratio="getExpenseByCategory.get(row) as number / totalExpense" height="sm" tone="over" />
+            <ProgressBar :ratio="getExpenseByCategory.get(row) as number / totalExpense" height="sm" />
           </li>
         </ul>
 

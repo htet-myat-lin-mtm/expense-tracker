@@ -202,10 +202,6 @@ const confirmDelete = () => {
 
 const isBulkDeleteOpen = ref(false);
 
-const selectedTotal = computed(() =>
-  selectedTransactions.value.reduce((sum, t) => sum + t.amount, 0),
-);
-
 const confirmBulkDelete = () => {
   const removed = bulkDeleteTransactions();
   isBulkDeleteOpen.value = false;
@@ -323,7 +319,6 @@ const cancelBulkDelete = () => {
       <div v-if="selectedIds.length > 0" class="flex flex-wrap items-center gap-2">
         <p class="text-sm text-slate-600">
           <span class="font-medium text-slate-800">{{ selectedIds.length }}</span> selected
-          <span class="text-slate-400">&middot; {{ amount(selectedTotal) }}</span>
         </p>
         <Button variant="secondary" size="sm" @click="clearSelection">Clear</Button>
         <Button variant="danger" size="sm" @click="isBulkDeleteOpen = true">
