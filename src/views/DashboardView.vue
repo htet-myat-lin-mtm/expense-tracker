@@ -26,59 +26,16 @@ const {
   totalExpense,
   balance,
   recentTransactions,
+  getIncomeByCategory,
+  getExpenseByCategory,
 } = useTransaction();
 
 const amount = (value: number) => formatCurrency(value);
-
-const percent = (value: number) => `${Math.round(value * 100)}%`;
 
 const signedAmount = (transaction: Transaction) => {
   const sign = transaction.type === "income" ? "+" : "-";
   return `${sign}${formatCurrency(transaction.amount)}`;
 };
-
-interface CategoryRow {
-  label: string;
-  total: number;
-  count: number;
-  share: number;
-}
-
-/** Rolls one direction of the ledger up per category, largest first. */
-const byCategory = (type: TransactionType) => {
-  const rows = transactions.value.filter((t) => t.type === type);
-  const grandTotal = rows.reduce((sum, t) => sum + t.amount, 0);
-
-  const totals = new Map<string, { total: number; count: number }>();
-  rows.forEach((t) => {
-    const entry = totals.get(t.category.label) ?? { total: 0, count: 0 };
-    entry.total += t.amount;
-    entry.count += 1;
-    totals.set(t.category.label, entry);
-  });
-
-  const list: CategoryRow[] = [...totals.entries()]
-    .map(([label, entry]) => ({
-      label,
-      total: entry.total,
-      count: entry.count,
-      share: grandTotal > 0 ? entry.total / grandTotal : 0,
-    }))
-    .sort((a, b) => b.total - a.total);
-
-  return { list, grandTotal };
-};
-
-const expenseByCategory = computed(() => byCategory("expense"));
-const incomeByCategory = computed(() => byCategory("income"));
-
-const maxExpense = computed(() =>
-  Math.max(1, ...expenseByCategory.value.list.map((row) => row.total)),
-);
-
-const maxIncome = computed(() =>
-  Math.max(1, ...incomeByCategory.value.list.map((row) => row.total)),
-);
 
 const usedCategories = computed(
   () => new Set(transactions.value.map((t) => t.category.label)).size,
@@ -89,7 +46,24 @@ const totalCategories = computed(
   () => new Set(ALL_CATEGORIES.map((c) => c.label)).size,
 );
 
-const topExpense = computed(() => expenseByCategory.value.list[0]?.label ?? "None yet");
+const categoryPercentages = (categories: Map<string, number>, type: TransactionType) => {
+  const shares = [...categories].map(([label, value]) => {
+    const exact = (value / (type === 'expense' ? totalExpense.value : totalIncome.value)) * 100;
+    const whole = Math.floor(exact);
+    const remainder = exact - whole;
+    return { label, whole, remainder: remainder };
+  })
+
+  const remaining = 100 - shares.reduce((sum, share) => sum + share.whole, 0);
+  shares.sort((a, b) => b.remainder - a.remainder)
+    .slice(0, remaining)
+    .forEach(share => share.whole++)
+
+  return new Map(shares.map(({ label, whole }) => [label, whole]));
+}
+
+const expensePercentages = computed(() => categoryPercentages(getExpenseByCategory.value, 'expense'))
+const incomePercentages = computed(() => categoryPercentages(getIncomeByCategory.value, 'income'))
 </script>
 
 <template>
@@ -131,7 +105,7 @@ const topExpense = computed(() => expenseByCategory.value.list[0]?.label ?? "Non
           label="Categories used"
           :value="`${usedCategories} of ${totalCategories}`"
           tone="budget"
-          :hint="`Top spend: ${topExpense}`"
+          :hint="`Top spend: ${totalExpense}`"
       >
         <template #icon>
           <ChartPie class="w-5 h-5" />
@@ -140,26 +114,23 @@ const topExpense = computed(() => expenseByCategory.value.list[0]?.label ?? "Non
     </div>
 
     <div class="grid gap-4 lg:grid-cols-2">
-      <Card title="Expense by category" :subtitle="`${amount(expenseByCategory.grandTotal)} spent in total`">
+      <Card title="Expense by category" :subtitle="`${amount(totalExpense)} spent in total`">
         <template #action>
           <span class="inline-flex items-center gap-1.5 text-xs text-slate-500">
             <ChartPie class="w-3.5 h-3.5" />
-            {{ expenseByCategory.list.length }}
-            {{ expenseByCategory.list.length === 1 ? "category" : "categories" }}
+            {{ [...getExpenseByCategory.keys()].length }}
+            {{ [...getExpenseByCategory.keys()].length === 1 ? "category" : "categories" }}
           </span>
         </template>
 
-        <ul v-if="expenseByCategory.list.length > 0" class="space-y-3">
-          <li v-for="row in expenseByCategory.list" :key="row.label" class="space-y-1.5">
+        <ul v-if="[...getExpenseByCategory.keys()].length > 0" class="space-y-3">
+          <li v-for="(row, index) in [...getExpenseByCategory.keys()]" :key="index" class="space-y-1.5">
             <div class="flex items-center gap-2 text-sm">
-              <span class="font-medium text-slate-700">{{ row.label }}</span>
-              <span class="text-xs text-slate-400">
-                {{ row.count }} {{ row.count === 1 ? "entry" : "entries" }}
-              </span>
-              <span class="ml-auto font-semibold text-slate-800">{{ amount(row.total) }}</span>
-              <span class="w-10 text-right text-xs text-slate-400">{{ percent(row.share) }}</span>
+              <span class="font-medium text-slate-700">{{ row }}</span>
+              <span class="ml-auto font-semibold text-slate-800">{{ amount(getExpenseByCategory.get(row) as number) }}</span>
+              <span class="w-10 text-right text-xs text-slate-400">{{ expensePercentages.get(row) ?? 0 }}%</span>
             </div>
-            <ProgressBar :ratio="row.total / maxExpense" height="sm" tone="over" />
+            <ProgressBar :ratio="getExpenseByCategory.get(row) as number / totalExpense" height="sm" tone="over" />
           </li>
         </ul>
 
@@ -170,33 +141,30 @@ const topExpense = computed(() => expenseByCategory.value.list[0]?.label ?? "Non
         </div>
       </Card>
 
-      <Card title="Income by category" :subtitle="`${amount(incomeByCategory.grandTotal)} earned in total`">
+      <Card title="Income by category" :subtitle="`${amount(totalIncome)} earned in total`">
         <template #action>
           <span class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600">
             <TrendingUp class="w-3.5 h-3.5" />
-            {{ incomeByCategory.list.length }}
-            {{ incomeByCategory.list.length === 1 ? "category" : "categories" }}
+            {{ [...getIncomeByCategory.keys()].length }}
+            {{ [...getIncomeByCategory.keys()].length === 1 ? "category" : "categories" }}
           </span>
         </template>
 
-        <ul v-if="incomeByCategory.list.length > 0" class="space-y-3">
-          <li v-for="row in incomeByCategory.list" :key="row.label" class="space-y-1.5">
+        <ul v-if="[...getIncomeByCategory.keys()].length > 0" class="space-y-3">
+          <li v-for="(row, index) in [...getIncomeByCategory.keys()]" :key="index" class="space-y-1.5">
             <div class="flex items-center gap-2 text-sm">
-              <span class="font-medium text-slate-700">{{ row.label }}</span>
-              <span class="text-xs text-slate-400">
-                {{ row.count }} {{ row.count === 1 ? "entry" : "entries" }}
-              </span>
-              <span class="ml-auto font-semibold text-emerald-700">{{ amount(row.total) }}</span>
-              <span class="w-10 text-right text-xs text-slate-400">{{ percent(row.share) }}</span>
+              <span class="font-medium text-slate-700">{{ row }}</span>
+              <span class="ml-auto font-semibold text-emerald-700">{{ amount(getIncomeByCategory.get(row) as number) }}</span>
+              <span class="w-10 text-right text-xs text-slate-400">{{ incomePercentages.get(row) ?? 0 }}%</span>
             </div>
-            <ProgressBar :ratio="row.total / maxIncome" height="sm" tone="income" />
+            <ProgressBar :ratio="getIncomeByCategory.get(row) as number / totalIncome" height="sm" tone="income" />
           </li>
         </ul>
 
         <div v-else class="flex flex-col items-center gap-2 py-8 text-center">
           <Wallet class="w-9 h-9 text-slate-300" />
           <p class="text-sm font-medium text-slate-700">No income yet</p>
-          <p class="text-sm text-slate-500">Record a paycheque to see it here.</p>
+          <p class="text-sm text-slate-500">Record a paycheck to see it here.</p>
         </div>
       </Card>
     </div>

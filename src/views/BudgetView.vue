@@ -28,8 +28,6 @@ const { getExpenseByCategory } = useTransaction();
 
 const amount = (value: number) => formatCurrency(value);
 
-const spentByCategory = computed(() => getExpenseByCategory());
-
 type BudgetTone = "safe" | "warning" | "over";
 
 interface BudgetRow {
@@ -44,7 +42,7 @@ interface BudgetRow {
 const rows = computed<BudgetRow[]>(() =>
   budgets.value
     .map((budget) => {
-      const spent = spentByCategory.value.get(budget.category.label) ?? 0;
+      const spent = getExpenseByCategory.value.get(budget.category.label) ?? 0;
       const ratio = budget.limitAmount > 0 ? spent / budget.limitAmount : 0;
       const tone: BudgetTone = ratio > 1 ? "over" : ratio >= 0.8 ? "warning" : "safe";
       return {

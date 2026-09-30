@@ -27,7 +27,7 @@ export const useTransaction = () => {
 
     const balance = computed(() => totalIncome.value - totalExpense.value)
 
-    const getExpenseByCategory = () => {
+    const getExpenseByCategory = computed(() => {
         const map = new Map<string, number>()
         transactions.value.forEach(t => {
             if (t.type === 'expense') {
@@ -35,9 +35,9 @@ export const useTransaction = () => {
             }
         })
         return map;
-    }
+    })
 
-    const getIncomeByCategory = () => {
+    const getIncomeByCategory = computed(() => {
         const map = new Map<string, number>()
         transactions.value.forEach(t => {
             if (t.type === 'income') {
@@ -45,7 +45,7 @@ export const useTransaction = () => {
             }
         })
         return map;
-    }
+    })
 
     const addTransaction = (payload: Partial<Transaction>) => {
         const transaction: Transaction = {
@@ -193,6 +193,8 @@ export const useTransaction = () => {
         totalIncome,
         totalExpense,
         balance,
+        getExpenseByCategory,
+        getIncomeByCategory,
         recentTransactions,
         totalPages,
         filteredTransactions,
@@ -211,7 +213,5 @@ export const useTransaction = () => {
         bulkDeleteTransactions,
         nextPage,
         previousPage,
-        getExpenseByCategory,
-        getIncomeByCategory
     }
 }
