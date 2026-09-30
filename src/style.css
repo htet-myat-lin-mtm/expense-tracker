@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    font-family: 'Roboto Variable', sans-serif;
+    font-weight: 400;
+    font-style: normal;
+    @apply bg-slate-50 text-slate-800 antialiased;
+}
